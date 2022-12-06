@@ -1,35 +1,13 @@
-use csv::{Reader, WriterBuilder};
-use serde::{Deserialize, Serialize};
-use std::{error::Error, fs::OpenOptions, path::Path};
+use csv::{WriterBuilder};
+use std::{error::Error, path::Path};
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
-pub struct Item {
-    pub name: String,
-    pub quantity: String
-}
+mod utils;
+use utils::lib::{read_csv_data, check_source_ok,
+                Item};
 
-
-pub fn check_source_exists() -> Result<(), Box<dyn Error>> {
-    let path: &Path = Path::new("grocerylist.csv");
-    let file_exists = path.exists();
-
-    if !file_exists {
-        println!("Source file doesn't exist! Creating file...");
-        OpenOptions::new()
-            .create_new(true)
-            .open(path)
-            .map_err(|e| e.to_string())
-            .ok();
-
-        println!("Source file has been created.");
-    }
-
-    Ok(())
-}
-
-pub fn add_item(quantity: &i32, item: &String) -> Result<(), Box<dyn Error>> {
-    check_source_exists().ok();
-    let file = Path::new("grocerylist.csv");
+pub fn add_item(quantity: &i32, item: &String, price: f32) -> Result<(), Box<dyn Error>> {
+    check_source_ok();
+    let path = Path::new("grocerylist.csv");
     let items = read_csv_data().unwrap();
 
     if check_if_item_exists(item.to_lowercase().to_owned()) == true {
@@ -37,16 +15,16 @@ pub fn add_item(quantity: &i32, item: &String) -> Result<(), Box<dyn Error>> {
     };
 
 
-    let mut wtr = WriterBuilder::new().has_headers(true).from_path(file)?;
+    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
 
-    wtr.write_record(&["name", "quantity"])
+    wtr.write_record(&["name", "quantity", "price"])
         .map_err(|e| e.to_string())
         .ok();
 
-        wtr.serialize([&item, &quantity.to_string()]).ok();
+        wtr.serialize([&item, &quantity.to_string(), &price.to_string()]).ok();
     
     for line in items {
-        wtr.serialize([line.name, line.quantity.to_string()]);
+        wtr.serialize([line.name, line.quantity.to_string(), line.price.to_string()]).ok();
     }
 
     wtr.flush().ok();
@@ -55,21 +33,8 @@ pub fn add_item(quantity: &i32, item: &String) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-
-pub fn read_csv_data() -> Result<Vec<Item>, Box<dyn Error>> {
-    let file = Path::new("grocerylist.csv");
-    let mut data: Vec<Item> = Vec::new();
-    let mut rdr = Reader::from_path(file)?;
-
-    for result in rdr.deserialize() {
-        let record: Item = result?;
-        data.push(record);
-    }
-    Ok(data)
-}
-
 pub fn check_if_item_exists(item: String) -> bool {
-    check_source_exists().ok();
+    check_source_ok();
     let data = read_csv_data().unwrap();
 
     if data.iter().any(|i| &i.name == &item) {
@@ -79,10 +44,57 @@ pub fn check_if_item_exists(item: String) -> bool {
     }
 }
 
-pub fn delete_item(item: String) {
-    check_source_exists().ok();
+pub fn delete_item(item: String) -> Result<String, Box <dyn Error>> {
+    let path: &Path = Path::new("grocerylist.csv");
+    check_source_ok();
     let data = read_csv_data().unwrap();
     if check_if_item_exists(item.to_owned()) == false {
         panic!("That item doesn't exist!");
     };
+
+    let output = data.iter().filter(|list_item| *list_item.name != item).collect::<Vec<&Item>>();
+
+    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
+
+    wtr.write_record(&["name", "quantity"])
+        .map_err(|e| e.to_string())
+        .ok();
+    
+    for line in output {
+        wtr.serialize([&line.name, &line.quantity.to_string()]).ok();
+    }
+
+    wtr.flush().ok();
+
+    Ok("Deleted item.".to_string())
+}
+
+pub fn update_item(search: String, new_quantity: i32) -> Result<(), Box<dyn Error>> {
+    let path = Path::new("grocerylist.csv");
+    if check_if_item_exists(search.clone()) == false {
+        panic!("That item doesn't exist!")
+    } else {
+
+    let csv = read_csv_data().unwrap();
+
+    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
+
+    wtr.write_record(&["name", "quantity", "price"])
+    .map_err(|e| e.to_string())
+    .ok();
+
+
+    for line in csv {
+        if line.name == search {
+            wtr.serialize([line.name, new_quantity.to_string(), line.price.to_string()]).ok();
+        } else {
+            wtr.serialize([line.name, line.quantity.to_string(), line.price.to_string()]).ok();
+        }
+    }
+
+    wtr.flush().ok();
+
+
+    Ok(())
+    }
 }
