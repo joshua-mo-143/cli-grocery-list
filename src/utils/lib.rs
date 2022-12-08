@@ -1,6 +1,6 @@
 use std::{error::Error, fs::OpenOptions, path::Path};
 use serde::{Deserialize, Serialize};
-use csv::Reader;
+use csv::{Reader, WriterBuilder};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialOrd, PartialEq)]
 pub struct Item {
@@ -79,6 +79,24 @@ pub fn read_csv_data() -> Result<Vec<Item>, Box<dyn Error>> {
     Ok(data)
 }
 
+pub fn write_to_csv(data: Vec<Item>) -> Result<(), Box<dyn Error>>{
+    let path: &Path = Path::new("grocerylist.csv");
+
+    let mut wtr = WriterBuilder::new().from_path(path)?;
+
+    for item in data {
+        wtr.serialize(Item {
+            name: item.name,
+            quantity: item.quantity,
+            price: format!("{:.2}", item.price).parse::<f64>().unwrap()
+        }).map_err(|e| e.to_string()).ok();
+    }
+
+    wtr.flush().ok();
+    
+    Ok(())
+}
+
 pub fn init_data() -> Data {
     let items = read_csv_data().unwrap();
 
@@ -89,4 +107,8 @@ pub fn init_data() -> Data {
     return data;
 }
 
-
+pub fn init_file() -> String {
+    std::fs::File::create("grocerylist.csv").ok();
+    
+    return format!("Source file has been created.");
+}   

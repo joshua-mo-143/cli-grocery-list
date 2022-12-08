@@ -1,33 +1,27 @@
-use csv::{WriterBuilder};
-use std::{error::Error, path::Path};
+use std::{error::Error};
 
 mod utils;
-use utils::lib::{read_csv_data, check_source_ok,
-                Item};
+use utils::lib::{check_source_ok, read_csv_data, Item};
+
+use crate::utils::lib::write_to_csv;
 
 pub fn add_item(quantity: &i32, item: &String, price: f32) -> Result<(), Box<dyn Error>> {
     check_source_ok();
-    let path = Path::new("grocerylist.csv");
-    let items = read_csv_data().unwrap();
 
     if check_if_item_exists(item.to_lowercase().to_owned()) == true {
         panic!("That item already exists!");
     };
 
+    let new_record = Item {
+        name: item.to_owned(),
+        quantity: quantity.to_string(),
+        price: f64::from(price),
+    };
 
-    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
+    let mut data = read_csv_data().unwrap();
+    data.push(new_record);
 
-    wtr.write_record(&["name", "quantity", "price"])
-        .map_err(|e| e.to_string())
-        .ok();
-
-        wtr.serialize([&item, &quantity.to_string(), &price.to_string()]).ok();
-    
-    for line in items {
-        wtr.serialize([line.name, line.quantity.to_string(), line.price.to_string()]).ok();
-    }
-
-    wtr.flush().ok();
+    write_to_csv(data).ok();
 
     println!("Successfully added {:?}x {:?}", quantity, item);
     Ok(())
@@ -44,57 +38,35 @@ pub fn check_if_item_exists(item: String) -> bool {
     }
 }
 
-pub fn delete_item(item: String) -> Result<String, Box <dyn Error>> {
-    let path: &Path = Path::new("grocerylist.csv");
+pub fn delete_item(item: String) -> Result<String, Box<dyn Error>> {
     check_source_ok();
-    let data = read_csv_data().unwrap();
+
+    let mut data = read_csv_data().unwrap();
     if check_if_item_exists(item.to_owned()) == false {
         panic!("That item doesn't exist!");
     };
 
-    let output = data.iter().filter(|list_item| *list_item.name != item).collect::<Vec<&Item>>();
+    data.retain(|x| *x.name != item);
 
-    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
-
-    wtr.write_record(&["name", "quantity"])
-        .map_err(|e| e.to_string())
-        .ok();
-    
-    for line in output {
-        wtr.serialize([&line.name, &line.quantity.to_string()]).ok();
-    }
-
-    wtr.flush().ok();
+    write_to_csv(data).ok();
 
     Ok("Deleted item.".to_string())
 }
 
 pub fn update_item(search: String, new_quantity: i32) -> Result<(), Box<dyn Error>> {
-    let path = Path::new("grocerylist.csv");
     if check_if_item_exists(search.clone()) == false {
         panic!("That item doesn't exist!")
-    } else {
+    };
 
-    let csv = read_csv_data().unwrap();
+    let mut data = read_csv_data().unwrap();
 
-    let mut wtr = WriterBuilder::new().has_headers(true).from_path(path)?;
-
-    wtr.write_record(&["name", "quantity", "price"])
-    .map_err(|e| e.to_string())
-    .ok();
-
-
-    for line in csv {
-        if line.name == search {
-            wtr.serialize([line.name, new_quantity.to_string(), line.price.to_string()]).ok();
-        } else {
-            wtr.serialize([line.name, line.quantity.to_string(), line.price.to_string()]).ok();
+    for item in data.iter_mut() {
+        if item.name == search {
+            item.quantity = new_quantity.to_string();
         }
     }
 
-    wtr.flush().ok();
-
+    write_to_csv(data).ok();
 
     Ok(())
-    }
 }

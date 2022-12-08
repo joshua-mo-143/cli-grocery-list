@@ -2,13 +2,13 @@ mod utils;
 
 use clap::{Parser, Subcommand};
 use cli_grocery_list::{add_item, check_if_item_exists, delete_item, update_item};
-use utils::lib::{read_csv_data, init_data, Info};
+use utils::lib::{read_csv_data, init_data, Info, init_file};
 
 #[derive(Parser)]
-#[command(name = "CLI Grocery List")]
+#[command(name = "CLI List")]
 #[command(author = "Josh M. <joshua.mo.876@gmail.com>")]
 #[command(version = "0.1")]
-#[command(about = "A CLI shopping list with full CRUD functionality and output to xlsx, JSON or a pdf.", long_about = None)]
+#[command(about = "A CLI list with full CRUD functionality and output to xlsx, JSON or a pdf.", long_about = None)]
 
 struct Cli {
     #[arg(long)]
@@ -21,6 +21,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Create new file
+    Init,
     /// List all items
     List,
     /// Find one item
@@ -77,11 +79,15 @@ fn main() {
             println!("You removed: {}", item)
         },
         Commands::Update {item, new_quantity} => {
-            update_item(item.to_owned(), *new_quantity);
+            update_item(item.to_owned(), *new_quantity).ok();
             println!("You updated {item} to be {new_quantity}.")
         },
         Commands::Sort => {
             init_data().sort();
+        },
+        Commands::Init => {
+            init_file();
+            println!("File created.");
         }
     }
     println!("---");
